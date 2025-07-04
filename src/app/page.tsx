@@ -1,103 +1,173 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import React, { useState } from 'react';
+
+// Tailwind-based, dark-themed, professional landing + scan UI
+export default function BugZapPage() {
+  const [snippet, setSnippet] = useState<string>('');
+  const [issues, setIssues] = useState<any[]>([]);
+  const [sessionId, setSessionId] = useState<string>('');
+  const [timeSaved, setTimeSaved] = useState<number | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
+
+  const runAnalyze = async () => {
+    setLoading(true);
+    const form = new FormData();
+    form.append('code', snippet);
+    const res = await fetch('http://localhost:8000/analyze', { method: 'POST', body: form });
+    const data = await res.json();
+    setSessionId(data.session_id);
+    setIssues(data.issues);
+    setTimeSaved(null);
+    setLoading(false);
+  };
+
+  const runFix = async (issueId?: number) => {
+    setLoading(true);
+    const form = new FormData();
+    form.append('code', snippet);
+    form.append('session_id', sessionId);
+    if (issueId != null) form.append('issue_id', String(issueId)); else form.append('all','true');
+    const res = await fetch('http://localhost:8000/fix', { method: 'POST', body: form });
+    const data = await res.json();
+    setSnippet(data.fixed_code);
+    setTimeSaved(data.time_saved);
+    setIssues([]);
+    setLoading(false);
+  };
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+    <div className="min-h-screen bg-[#1A1A2E] text-white font-sans">
+      {/* --- Nav Bar --- */}
+      <header className="container mx-auto py-6 flex justify-between items-center px-4 lg:px-0">
+        <div className="flex items-center space-x-2 text-2xl font-bold text-yellow-400">
+          <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2a1 1 0 011 1v3h3a1 1 0 011 1v3h3a1 1 0 011 1v3h-3v3a1 1 0 01-1 1h-3v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-3H6a1 1 0 01-1-1v-3H2a1 1 0 01-1-1v-3h3V6a1 1 0 011-1h3V2a1 1 0 011-1h3z"/></svg>
+          <span>BugZap</span>
+        </div>
+        <nav className="hidden md:flex space-x-8">
+          <a href="#features" className="hover:text-yellow-400">Features</a>
+          <a href="#pricing" className="hover:text-yellow-400">Pricing</a>
+          <a href="#docs" className="hover:text-yellow-400">Docs</a>
+          <a href="#blog" className="hover:text-yellow-400">Blog</a>
+        </nav>
+        <div className="space-x-4">
+          <button className="bg-yellow-500 text-black px-5 py-2 rounded-2xl shadow-lg hover:bg-yellow-600 transition">
+            Try Free Now
+          </button>
+          <button className="border border-white px-5 py-2 rounded-2xl hover:bg-white hover:text-black transition">
+            See Demo
+          </button>
+        </div>
+      </header>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+      {/* --- Hero Section --- */}
+      <main className="container mx-auto px-4 lg:px-0 mt-16 flex flex-col-reverse lg:flex-row items-center">
+        <div className="lg:w-1/2">
+          <h1 className="text-5xl lg:text-6xl font-extrabold leading-tight mb-6">
+            Instantly Find and Fix Code Bugs with AI
+          </h1>
+          <p className="text-gray-300 text-lg mb-8">
+            BugZap automatically detects bugs in your game code, offers precise, actionable fixes instantly, and helps reduce debugging time significantly.
+          </p>
+          <div className="flex space-x-4">
+            <button className="bg-yellow-500 text-black px-6 py-3 rounded-2xl shadow-lg hover:bg-yellow-600 transition">
+              Try Free Now
+            </button>
+            <button className="border border-white px-6 py-3 rounded-2xl hover:bg-white hover:text-black transition">
+              See Demo
+            </button>
+          </div>
+        </div>
+
+        <div className="lg:w-1/2 mb-12 lg:mb-0">
+          <div className="bg-[#2E2E4D] rounded-2xl shadow-2xl p-6">
+            <pre className="bg-[#1A1A2E] p-4 rounded-lg text-sm overflow-auto">
+{`function updatePlayerPosition(player, delta) {  
+  // BugZap detected: Potential null reference  
+  if (player.position !== undefined) {  
+    player.position.x += player.velocity.x * delta;  
+    player.position.y += player.velocity.y * delta;  
+    player.position.z += player.velocity.z * delta;  
+  }  
+}`}
+            </pre>
+            <div className="mt-4 bg-yellow-700 text-black px-4 py-2 rounded-lg text-sm">
+              BugZap: Potential null reference at line 3. Player velocity may be undefined.
+            </div>
+          </div>
         </div>
       </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
+
+      {/* --- Scanner Section --- */}
+      <section className="container mx-auto px-4 lg:px-0 mt-20">
+        <div className="bg-[#2E2E4D] rounded-2xl shadow-2xl p-8">
+          <h2 className="text-2xl font-bold mb-4">AI-Powered Bug Detection</h2>
+          <textarea
+            value={snippet}
+            onChange={e => setSnippet(e.target.value)}
+            rows={8}
+            className="w-full bg-[#1A1A2E] text-gray-100 rounded-lg p-4 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400"
+            placeholder="Paste your code here…"
           />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+          <div className="mt-4 flex space-x-4">
+            <button
+              onClick={runAnalyze}
+              disabled={loading}
+              className="bg-yellow-500 text-black px-6 py-2 rounded-2xl shadow hover:bg-yellow-600 transition"
+            >
+              {loading ? 'Scanning…' : 'Scan for Bugs'}
+            </button>
+          </div>
+
+          {issues.length > 0 && (
+            <div className="mt-6">
+              <h3 className="text-xl font-semibold mb-3">Found {issues.length} issue(s):</h3>
+              <div className="space-y-4">
+                {issues.map(issue => (
+                  <div key={issue.id} className="bg-[#1A1A2E] p-4 rounded-lg border border-gray-700">
+                    <div><strong>Line {issue.line}</strong>: {issue.message}</div>
+                    <div className="italic text-gray-300">{issue.suggestion}</div>
+                    <button
+                      onClick={() => runFix(issue.id)}
+                      disabled={loading}
+                      className="mt-2 bg-yellow-500 text-black px-4 py-1 rounded-lg hover:bg-yellow-600 transition"
+                    >Fix This</button>
+                  </div>
+                ))}
+                <button
+                  onClick={() => runFix()}
+                  disabled={loading}
+                  className="mt-2 bg-yellow-500 text-black px-6 py-2 rounded-2xl shadow hover:bg-yellow-600 transition"
+                >Fix All</button>
+              </div>
+            </div>
+          )}
+
+          {timeSaved !== null && (
+            <div className="mt-6 text-yellow-300">
+              🎉 You saved approximately <strong>{timeSaved.toFixed(1)} seconds</strong>!
+            </div>
+          )}
+
+          {timeSaved !== null && (
+            <div className="mt-6">
+              <h3 className="text-xl font-semibold mb-2">Fixed Code:</h3>
+              <pre className="bg-[#1A1A2E] p-4 rounded-lg text-sm overflow-auto max-h-64">
+                {snippet}
+              </pre>
+              <a
+                href={`data:text/plain;charset=utf-8,${encodeURIComponent(snippet)}`}
+                download="fixed_code.py"
+                className="inline-block mt-2 bg-yellow-500 text-black px-4 py-1 rounded-lg hover:bg-yellow-600 transition"
+              >📥 Download Fixed Code</a>
+            </div>
+          )}
+
+          {loading && <div className="mt-4 italic text-gray-400">Working…</div>}
+        </div>
+      </section>
     </div>
   );
 }
+
+

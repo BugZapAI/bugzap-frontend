@@ -3,19 +3,27 @@
 
 import React, { useState } from 'react';
 
+// Point at your live API in production, fallback to localhost for dev
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
 // Tailwind-based, dark-themed, professional landing + scan UI
 export default function BugZapPage() {
-  const [snippet, setSnippet] = useState<string>('');
-  const [issues, setIssues] = useState<any[]>([]);
-  const [sessionId, setSessionId] = useState<string>('');
-  const [timeSaved, setTimeSaved] = useState<number | null>(null);
-  const [loading, setLoading] = useState<boolean>(false);
+  const [snippet, setSnippet]       = useState<string>('');
+  const [issues, setIssues]         = useState<any[]>([]);
+  const [sessionId, setSessionId]   = useState<string>('');
+  const [timeSaved, setTimeSaved]   = useState<number | null>(null);
+  const [loading, setLoading]       = useState<boolean>(false);
 
   const runAnalyze = async () => {
     setLoading(true);
     const form = new FormData();
     form.append('code', snippet);
-    const res = await fetch('http://localhost:8000/analyze', { method: 'POST', body: form });
+
+    const res = await fetch(`${API_URL}/analyze`, {
+      method: 'POST',
+      body: form
+    });
+
     const data = await res.json();
     setSessionId(data.session_id);
     setIssues(data.issues);
@@ -28,8 +36,14 @@ export default function BugZapPage() {
     const form = new FormData();
     form.append('code', snippet);
     form.append('session_id', sessionId);
-    if (issueId != null) form.append('issue_id', String(issueId)); else form.append('all','true');
-    const res = await fetch('http://localhost:8000/fix', { method: 'POST', body: form });
+    if (issueId != null) form.append('issue_id', String(issueId));
+    else form.append('all','true');
+
+    const res = await fetch(`${API_URL}/fix`, {
+      method: 'POST',
+      body: form
+    });
+
     const data = await res.json();
     setSnippet(data.fixed_code);
     setTimeSaved(data.time_saved);
@@ -42,7 +56,9 @@ export default function BugZapPage() {
       {/* --- Nav Bar --- */}
       <header className="container mx-auto py-6 flex justify-between items-center px-4 lg:px-0">
         <div className="flex items-center space-x-2 text-2xl font-bold text-yellow-400">
-          <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2a1 1 0 011 1v3h3a1 1 0 011 1v3h3a1 1 0 011 1v3h-3v3a1 1 0 01-1 1h-3v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-3H6a1 1 0 01-1-1v-3H2a1 1 0 01-1-1v-3h3V6a1 1 0 011-1h3V2a1 1 0 011-1h3z"/></svg>
+          <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 2a1 1 0 011 1v3h3a1 1 0 011 1v3h3a1 1 0 011 1v3h-3v3a1 1 0 01-1 1h-3v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-3H6a1 1 0 01-1-1v-3H2a1 1 0 01-1-1v-3h3V6a1 1 0 011-1h3V2a1 1 0 011-1h3z"/>
+          </svg>
           <span>BugZap</span>
         </div>
         <nav className="hidden md:flex space-x-8">

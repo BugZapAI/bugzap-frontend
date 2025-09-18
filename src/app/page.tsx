@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import CrashAnalyze from "@/components/CrashAnalyze"; // Live feature
 
@@ -124,9 +124,9 @@ function IssueCard({
 }
 
 // ------------------------------------
-// Main page (keeps your original logic)
+// Main page (your original logic)
 // ------------------------------------
-export default function BugZapPage() {
+function BugZapPageInner() {
   // ---- existing state (unchanged) ----
   const [snippet, setSnippet] = useState<string>("");
   const [issues, setIssues] = useState<any[]>([]);
@@ -698,3 +698,13 @@ export default function BugZapPage() {
     </div>
   );
 }
+
+// Minimal change Next requires: wrap the page in Suspense
+export default function BugZapPage() {
+  return (
+    <Suspense fallback={null}>
+      <BugZapPageInner />
+    </Suspense>
+  );
+}
+

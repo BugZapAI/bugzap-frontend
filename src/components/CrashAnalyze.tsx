@@ -12,8 +12,12 @@ type Result = {
   detected_signatures: string[];
 };
 
-const API_BASE = (process.env.NEXT_PUBLIC_API_BASE_URL || "").replace(/\/$/, "");
+// --- API base: supports either env name, trims trailing slash
+const apiFromEnv =
+  (process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_BASE_URL || "").trim();
+const API_BASE = apiFromEnv ? apiFromEnv.replace(/\/$/, "") : "";
 
+// Keep the rest of your component/logic unchanged
 export default function CrashAnalyze() {
   const [file, setFile] = useState<File | null>(null);
   const [engine, setEngine] = useState<"" | "unity" | "unreal">("unity");
@@ -29,17 +33,30 @@ export default function CrashAnalyze() {
     setResult(null);
 
     try {
+      if (!API_BASE) {
+        throw new Error(
+          "Missing NEXT_PUBLIC_API_URL (or NEXT_PUBLIC_API_BASE_URL) on the frontend."
+        );
+      }
+
       const form = new FormData();
       form.append("log", file);
       form.append("engine", engine);
 
-      const res = await fetch(`${API_BASE}/api/analyze-crash`, {
+      // NOTE: removed the extra '/api' segment
+      const res = await fetch(`${API_BASE}/analyze-crash`, {
         method: "POST",
         body: form,
       });
 
-      if (!res.ok) throw new Error(await res.text());
-      setResult(await res.json());
+      const ct = res.headers.get("content-type") || "";
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`HTTP ${res.status}: ${text.slice(0, 300)}`);
+      }
+      const data: Result =
+        ct.includes("application/json") ? await res.json() : await res.json(); // backend should return JSON
+      setResult(data);
     } catch (err: any) {
       setError(err?.message ?? "Something went wrong");
     } finally {

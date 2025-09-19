@@ -24,12 +24,15 @@ const CRASH_PATH_FROM_ENV =
     ? (pathEnvRaw.startsWith("/") ? pathEnvRaw : `/${pathEnvRaw}`)
     : "";
 
-// Candidate backend routes (include /api + trailing slashes)
+// Candidate backend routes (include /crash/analyze-crash and /api/crash/analyze-crash)
 const CRASH_ENDPOINTS = CRASH_PATH_FROM_ENV
   ? [CRASH_PATH_FROM_ENV]
   : [
-      // no /api
+      // plain
       "/analyze-crash", "/analyze-crash/",
+      // likely mounted with /crash
+      "/crash/analyze-crash", "/crash/analyze-crash/",
+      // other common names we already had
       "/crash/analyze", "/crash/analyze/",
       "/analyze_log", "/analyze_log/",
       "/crash/analyze-log", "/crash/analyze-log/",
@@ -38,6 +41,7 @@ const CRASH_ENDPOINTS = CRASH_PATH_FROM_ENV
       "/crashlog/analyze", "/crashlog/analyze/",
       // with /api prefix
       "/api/analyze-crash", "/api/analyze-crash/",
+      "/api/crash/analyze-crash", "/api/crash/analyze-crash/",
       "/api/crash/analyze", "/api/crash/analyze/",
       "/api/analyze_log", "/api/analyze_log/",
       "/api/crash/analyze-log", "/api/crash/analyze-log/",

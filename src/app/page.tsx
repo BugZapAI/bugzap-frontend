@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import React, { useEffect, useMemo, useState, Suspense } from "react";
+import React, { useEffect, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import CrashAnalyze from "@/components/CrashAnalyze"; // Live feature
 
@@ -54,15 +54,6 @@ function Pill({ children }: { children: React.ReactNode }) {
     <span className="rounded-full border border-white/15 bg-white/10 px-2 py-1 text-xs">
       {children}
     </span>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-xl border border-white/10 bg-gradient-to-br from-white/10 to-transparent px-4 py-3">
-      <div className="text-xs opacity-70">{label}</div>
-      <div className="text-lg font-semibold">{value}</div>
-    </div>
   );
 }
 
@@ -326,8 +317,6 @@ function BugZapPageInner() {
   }, [snippet, sessionId, issues]);
 
   // Capture crash report from CrashAnalyze via CustomEvent
-  // In CrashAnalyze, after analysis:
-  // window.dispatchEvent(new CustomEvent("bugzap:crashReport", { detail: reportObject }));
   useEffect(() => {
     const onReport = (e: Event) => {
       // @ts-ignore
@@ -356,27 +345,17 @@ function BugZapPageInner() {
     setTimeout(() => setToast(""), 1400);
   };
 
-  // Fun static stats
-  const stats = useMemo(
-    () => [
-      { label: "Crashes analyzed", value: "128" },
-      { label: "Avg. turnaround", value: "2.1s" },
-      { label: "Top signature", value: "NullReferenceException" },
-    ],
-    []
-  );
-
   return (
     <div className="relative min-h-screen text-white">
       {/* Ambient background */}
       <div className="pointer-events-none fixed inset-0 -z-10">
         <div className="absolute inset-0 bg-gradient-to-br from-[#12081f] via-[#151a3c] to-[#2a0f3a]" />
-        <div className="absolute inset-0 opacity-[0.18] [background-image:linear-gradient(transparent,transparent_23px,rgba(255,255,255,0.08)_24px),linear-gradient(90deg,transparent,transparent_23px,rgba(255,255,255,0.08)_24px)] [background-size:24px_24px]" />
+        <div className="absolute inset-0 opacity-[0.18] bg-grid" />
         <div className="absolute -top-24 -left-24 h-72 w-72 rounded-full bg-fuchsia-600/35 blur-3xl" />
         <div className="absolute bottom-0 right-0 h-96 w-96 rounded-full bg-orange-500/30 blur-3xl" />
       </div>
 
-      {/* HEADER */}
+      {/* HEADER (stats removed) */}
       <header className="border-b border-white/10 bg-gradient-to-b from-white/10 to-transparent px-6 pb-6 pt-10 md:px-10">
         <div className="mx-auto max-w-7xl">
           <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
@@ -399,20 +378,16 @@ function BugZapPageInner() {
                 </div>
               </div>
             </div>
-            <div className="grid min-w-[280px] grid-cols-3 gap-2">
-              {stats.map((s) => (
-                <Stat key={s.label} label={s.label} value={s.value} />
-              ))}
-            </div>
+            {/* stats grid removed */}
           </div>
         </div>
       </header>
 
-      {/* TABS */}
+      {/* TABS — centered & wrapping, no horizontal scroll */}
       <nav className="sticky top-0 z-30 border-b border-white/10 bg-[#151a3c]/80 backdrop-blur">
         <div className="mx-auto max-w-7xl px-6 md:px-10">
-          <div className="py-3">
-            <div className="inline-flex overflow-x-auto rounded-2xl border border-white/10 bg-white/5">
+          <div className="py-3 flex justify-center">
+            <div className="inline-flex flex-wrap rounded-2xl border border-white/10 overflow-hidden">
               {[
                 ["debugger", "Code Debugger"],
                 ["crash", "Crash Analyzer"],
@@ -786,9 +761,9 @@ function BugZapPageInner() {
           <a
             className="grid place-items-center rounded-xl bg-gradient-to-r from-fuchsia-400 to-orange-300 px-4 py-2 font-semibold text-black"
             href={`mailto:Outreach@trybugzap.com?subject=Feedback%20on%20BugZap&body=${encodeURIComponent(
-              `What I scanned:\n- Tab: ${typeof window !== 'undefined' ? window.location.search : ""}\n- Session: ${
-                sessionId || "n/a"
-              }\n\nMy feedback:\n`
+              `What I scanned:\n- Tab: ${
+                typeof window !== "undefined" ? window.location.search : ""
+              }\n- Session: ${sessionId || "n/a"}\n\nMy feedback:\n`
             )}`}
             onClick={() => setFeedbackOpen(false)}
           >

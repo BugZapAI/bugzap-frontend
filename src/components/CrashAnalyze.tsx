@@ -17,8 +17,12 @@ const apiFromEnv =
   (process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_BASE_URL || "").trim();
 const API_BASE = apiFromEnv ? apiFromEnv.replace(/\/$/, "") : "";
 
-// (NEW) Optional override for exact crash path via env
-const CRASH_PATH_FROM_ENV = (process.env.NEXT_PUBLIC_CRASH_PATH || "").trim().replace(/^\/?/, "/");
+// (NEW) Optional override for exact crash path via env (ignore empty or "/")
+const pathEnvRaw = (process.env.NEXT_PUBLIC_CRASH_PATH || "").trim();
+const CRASH_PATH_FROM_ENV =
+  pathEnvRaw && pathEnvRaw !== "/"
+    ? (pathEnvRaw.startsWith("/") ? pathEnvRaw : `/${pathEnvRaw}`)
+    : "";
 
 // Candidate backend routes (we'll try in order until one returns JSON 200)
 const CRASH_ENDPOINTS = CRASH_PATH_FROM_ENV
@@ -27,7 +31,6 @@ const CRASH_ENDPOINTS = CRASH_PATH_FROM_ENV
       "/analyze-crash",
       "/crash/analyze",
       "/analyze_log",
-      // (NEW) extra common variants
       "/crash/analyze-log",
       "/crash/analyze_log",
       "/analyze_crash",

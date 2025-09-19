@@ -17,13 +17,68 @@ const apiFromEnv =
   (process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_BASE_URL || "").trim();
 const API_BASE = apiFromEnv ? apiFromEnv.replace(/\/$/, "") : "";
 
-// Keep the rest of your component/logic unchanged
+// Candidate backend routes (we'll try in order until one returns JSON 200)
+const CRASH_ENDPOINTS = [
+  "/analyze-crash",
+  "/crash/analyze",
+  "/analyze_log",
+];
+
 export default function CrashAnalyze() {
   const [file, setFile] = useState<File | null>(null);
   const [engine, setEngine] = useState<"" | "unity" | "unreal">("unity");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<Result | null>(null);
+
+  async function postToFirstWorkingEndpoint(form: FormData): Promise<Result> {
+    if (!API_BASE) {
+      throw new Error(
+        "Missing NEXT_PUBLIC_API_URL (or NEXT_PUBLIC_API_BASE_URL) on the frontend."
+      );
+    }
+
+    const tried: string[] = [];
+
+    for (const path of CRASH_ENDPOINTS) {
+      const url = `${API_BASE}${path}`;
+      tried.push(url);
+      try {
+        const res = await fetch(url, { method: "POST", body: form });
+
+        const ct = res.headers.get("content-type") || "";
+        const isJSON = ct.includes("application/json");
+
+        if (!res.ok) {
+          // If JSON error, include its message; otherwise surface status
+          const msg = isJSON ? JSON.stringify(await res.json()).slice(0, 300)
+                             : (await res.text()).slice(0, 300);
+          // 404 -> try next path
+          if (res.status === 404) continue;
+          throw new Error(`HTTP ${res.status} from ${url}: ${msg}`);
+        }
+
+        if (!isJSON) {
+          // Not JSON? Try next path.
+          continue;
+        }
+
+        const data = (await res.json()) as Result;
+        // Basic shape check
+        if (data && typeof data.summary === "string") return data;
+        // If shape is off, try next
+      } catch (e) {
+        // Network error — move on to next candidate
+        continue;
+      }
+    }
+
+    throw new Error(
+      `No crash-analysis endpoint responded successfully.\nTried:\n- ${tried.join(
+        "\n- "
+      )}`
+    );
+  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -33,29 +88,13 @@ export default function CrashAnalyze() {
     setResult(null);
 
     try {
-      if (!API_BASE) {
-        throw new Error(
-          "Missing NEXT_PUBLIC_API_URL (or NEXT_PUBLIC_API_BASE_URL) on the frontend."
-        );
-      }
-
       const form = new FormData();
+      // Your backend might expect "log" or "file"; include both for safety.
       form.append("log", file);
+      form.append("file", file);
       form.append("engine", engine);
 
-      // NOTE: removed the extra '/api' segment
-      const res = await fetch(`${API_BASE}/analyze-crash`, {
-        method: "POST",
-        body: form,
-      });
-
-      const ct = res.headers.get("content-type") || "";
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`HTTP ${res.status}: ${text.slice(0, 300)}`);
-      }
-      const data: Result =
-        ct.includes("application/json") ? await res.json() : await res.json(); // backend should return JSON
+      const data = await postToFirstWorkingEndpoint(form);
       setResult(data);
     } catch (err: any) {
       setError(err?.message ?? "Something went wrong");
@@ -159,7 +198,7 @@ export default function CrashAnalyze() {
         {error && (
           <div className="mt-5 rounded-xl border border-red-300/70 p-4">
             <div className="font-semibold">Error</div>
-            <div className="text-sm">{error}</div>
+            <div className="text-sm whitespace-pre-wrap">{error}</div>
           </div>
         )}
 
@@ -211,3 +250,4 @@ export default function CrashAnalyze() {
     </div>
   );
 }
+

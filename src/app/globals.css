@@ -1,8 +1,15 @@
+/* ─────────────────────────────────────────────────────────
+   Tailwind + animations
+   ───────────────────────────────────────────────────────── */
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* allow `.dark` anywhere in subtree */
 @custom-variant dark (&:is(.dark *));
 
+/* ─────────────────────────────────────────────────────────
+   Theme tokens (kept from your version)
+   ───────────────────────────────────────────────────────── */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -76,6 +83,12 @@
   --sidebar-ring: oklch(0.708 0 0);
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
+
+  /* BugZap brand accents */
+  --bz-fuchsia:  #d946ef; /* fuchsia-500 */
+  --bz-violet:   #7c3aed; /* violet-600 */
+  --bz-orange:   #fb923c; /* orange-400 */
+  --bz-yellow:   #facc15; /* yellow-400 */
 }
 
 .dark {
@@ -112,11 +125,89 @@
   --sidebar-ring: oklch(0.556 0 0);
 }
 
+/* ─────────────────────────────────────────────────────────
+   Base
+   ───────────────────────────────────────────────────────── */
 @layer base {
-  * {
-    @apply border-border outline-ring/50;
-  }
-  body {
-    @apply bg-background text-foreground;
-  }
+  * { @apply border-border outline-ring/50; }
+  body { @apply bg-background text-foreground; }
+
+  /* Smooth scroll & nicer selection */
+  html { scroll-behavior: smooth; }
+  ::selection { background: color-mix(in oklch, var(--foreground) 15%, transparent); }
 }
+
+/* ─────────────────────────────────────────────────────────
+   Utilities: brighter BugZap look
+   ───────────────────────────────────────────────────────── */
+@layer utilities {
+  /* Ambient grid background overlay */
+  .bg-grid {
+    background-image:
+      linear-gradient(transparent, transparent 23px, rgba(255,255,255,0.08) 24px),
+      linear-gradient(90deg, transparent, transparent 23px, rgba(255,255,255,0.08) 24px);
+    background-size: 24px 24px;
+  }
+
+  /* Frosted glass surface */
+  .glass {
+    background: color-mix(in oklch, var(--background) 80%, oklch(1 0 0 / 6%));
+    @apply backdrop-blur-md border border-white/10;
+  }
+
+  /* Buttons & pills */
+  .btn { @apply rounded-2xl px-5 py-2 font-semibold transition; }
+  .btn-primary {
+    background-image: linear-gradient(90deg, var(--bz-orange), var(--bz-yellow));
+    color: black;
+  }
+  .btn-primary:hover { filter: brightness(0.95); }
+  .btn-secondary { @apply border border-white/15 hover:border-white/25; }
+  .badge { @apply text-xs px-2 py-1 rounded-full border border-white/15 bg-white/5; }
+
+  /* Shimmer (for CTAs/headers) */
+  .shimmer {
+    background: linear-gradient(110deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.22) 15%, rgba(255,255,255,0.08) 30%);
+    background-size: 200% 100%;
+    animation: shimmer 2.5s linear infinite;
+  }
+  @keyframes shimmer { to { background-position: -200% 0; } }
+
+  /* Glow on hover */
+  .glow:hover {
+    box-shadow:
+      0 0 0 2px rgba(255,255,255,0.08),
+      0 0 60px 10px rgba(255,115,0,0.25);
+  }
+
+  /* Animated tab underline (used by active TabButton) */
+  .tab-underline { position: relative; }
+  .tab-underline::after {
+    content: "";
+    position: absolute; left: 12px; right: 12px; bottom: 6px; height: 2px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--bz-fuchsia), var(--bz-orange));
+  }
+
+  /* Brand gradient helpers */
+  .bg-bugzap {
+    background-image: radial-gradient(1200px 600px at -10% -10%, color-mix(in oklch, var(--bz-fuchsia) 30%, transparent), transparent 70%),
+                      radial-gradient(1200px 600px at 110% 110%, color-mix(in oklch, var(--bz-orange) 25%, transparent), transparent 70%);
+  }
+  .text-gradient {
+    background: linear-gradient(90deg, var(--bz-fuchsia), var(--bz-orange));
+    -webkit-background-clip: text;
+            background-clip: text;
+    color: transparent;
+  }
+
+  /* Scrollbars (WebKit/Chromium) */
+  .nice-scroll { scrollbar-width: thin; }
+  .nice-scroll::-webkit-scrollbar { height: 8px; width: 8px; }
+  .nice-scroll::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, var(--bz-violet), var(--bz-orange));
+    border-radius: 999px;
+  }
+  .nice-scroll::-webkit-scrollbar-track { background: transparent; }
+}
+

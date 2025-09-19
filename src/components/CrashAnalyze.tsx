@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 
 type Result = {
   engine: string;
@@ -14,14 +14,18 @@ type Result = {
 
 // --- API base: supports either env name, trims trailing slash
 const apiFromEnv =
-  (process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_BASE_URL || "").trim();
+  (process.env.NEXT_PUBLIC_API_URL ||
+    process.env.NEXT_PUBLIC_API_BASE_URL ||
+    "").trim();
 const API_BASE = apiFromEnv ? apiFromEnv.replace(/\/$/, "") : "";
 
 // Optional override for exact crash path via env (ignore empty or "/")
 const pathEnvRaw = (process.env.NEXT_PUBLIC_CRASH_PATH || "").trim();
 const CRASH_PATH_FROM_ENV =
   pathEnvRaw && pathEnvRaw !== "/"
-    ? (pathEnvRaw.startsWith("/") ? pathEnvRaw : `/${pathEnvRaw}`)
+    ? pathEnvRaw.startsWith("/")
+      ? pathEnvRaw
+      : `/${pathEnvRaw}`
     : "";
 
 // Candidate backend routes (include /crash/analyze-crash and /api/crash/analyze-crash)
@@ -29,25 +33,41 @@ const CRASH_ENDPOINTS = CRASH_PATH_FROM_ENV
   ? [CRASH_PATH_FROM_ENV]
   : [
       // plain
-      "/analyze-crash", "/analyze-crash/",
+      "/analyze-crash",
+      "/analyze-crash/",
       // likely mounted with /crash
-      "/crash/analyze-crash", "/crash/analyze-crash/",
+      "/crash/analyze-crash",
+      "/crash/analyze-crash/",
       // other common names we already had
-      "/crash/analyze", "/crash/analyze/",
-      "/analyze_log", "/analyze_log/",
-      "/crash/analyze-log", "/crash/analyze-log/",
-      "/crash/analyze_log", "/crash/analyze_log/",
-      "/analyze_crash", "/analyze_crash/",
-      "/crashlog/analyze", "/crashlog/analyze/",
+      "/crash/analyze",
+      "/crash/analyze/",
+      "/analyze_log",
+      "/analyze_log/",
+      "/crash/analyze-log",
+      "/crash/analyze-log/",
+      "/crash/analyze_log",
+      "/crash/analyze_log/",
+      "/analyze_crash",
+      "/analyze_crash/",
+      "/crashlog/analyze",
+      "/crashlog/analyze/",
       // with /api prefix
-      "/api/analyze-crash", "/api/analyze-crash/",
-      "/api/crash/analyze-crash", "/api/crash/analyze-crash/",
-      "/api/crash/analyze", "/api/crash/analyze/",
-      "/api/analyze_log", "/api/analyze_log/",
-      "/api/crash/analyze-log", "/api/crash/analyze-log/",
-      "/api/crash/analyze_log", "/api/crash/analyze_log/",
-      "/api/analyze_crash", "/api/analyze_crash/",
-      "/api/crashlog/analyze", "/api/crashlog/analyze/",
+      "/api/analyze-crash",
+      "/api/analyze-crash/",
+      "/api/crash/analyze-crash",
+      "/api/crash/analyze-crash/",
+      "/api/crash/analyze",
+      "/api/crash/analyze/",
+      "/api/analyze_log",
+      "/api/analyze_log/",
+      "/api/crash/analyze-log",
+      "/api/crash/analyze-log/",
+      "/api/crash/analyze_log",
+      "/api/crash/analyze_log/",
+      "/api/analyze_crash",
+      "/api/analyze_crash/",
+      "/api/crashlog/analyze",
+      "/api/crashlog/analyze/",
     ];
 
 export default function CrashAnalyze() {
@@ -56,6 +76,13 @@ export default function CrashAnalyze() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<Result | null>(null);
+  const [fileText, setFileText] = useState<string>("");
+
+  const fileHint = useMemo(() => {
+    if (!fileText) return "";
+    const lines = fileText.split(/\r?\n/).slice(0, 12).join("\n");
+    return lines;
+  }, [fileText]);
 
   async function postToFirstWorkingEndpoint(form: FormData): Promise<Result> {
     if (!API_BASE) {
@@ -73,7 +100,7 @@ export default function CrashAnalyze() {
         const res = await fetch(url, {
           method: "POST",
           body: form,
-          headers: { Accept: "application/json" }, // (NEW) prefer JSON
+          headers: { Accept: "application/json" },
         });
 
         const ct = res.headers.get("content-type") || "";
@@ -87,21 +114,19 @@ export default function CrashAnalyze() {
           throw new Error(`HTTP ${res.status} from ${url}: ${msg}`);
         }
 
-        if (!isJSON) {
-          // Not JSON? try the next candidate
-          continue;
-        }
+        if (!isJSON) continue;
 
         const data = (await res.json()) as Result;
-        if (data && typeof data.summary === "string") return data; // basic shape check
+        if (data && typeof data.summary === "string") return data;
       } catch {
-        // network/parse issue — move on
         continue;
       }
     }
 
     throw new Error(
-      `No crash-analysis endpoint responded successfully.\nTried:\n- ${tried.join("\n- ")}`
+      `No crash-analysis endpoint responded successfully.\nTried:\n- ${tried.join(
+        "\n- "
+      )}`
     );
   }
 
@@ -117,12 +142,17 @@ export default function CrashAnalyze() {
       // Your backend might expect different keys — include a few common ones
       form.append("log", file);
       form.append("file", file);
-      form.append("crash_log", file);          // (NEW)
+      form.append("crash_log", file);
       form.append("engine", engine);
-      form.append("game_engine", engine);      // (NEW)
+      form.append("game_engine", engine);
 
       const data = await postToFirstWorkingEndpoint(form);
       setResult(data);
+
+      // 🔔 Tell the page we have a finished crash report (used for Download button + feedback)
+      window.dispatchEvent(
+        new CustomEvent("bugzap:crashReport", { detail: data })
+      );
     } catch (err: any) {
       setError(err?.message ?? "Something went wrong");
     } finally {
@@ -131,149 +161,198 @@ export default function CrashAnalyze() {
   }
 
   return (
-    <div className="w-full rounded-2xl border shadow-sm bg-white/70 dark:bg-zinc-900/50 backdrop-blur">
-      <div className="p-6">
-        <h1 className="text-2xl md:text-3xl font-bold">Crash Log Analyzer</h1>
-        <p className="mt-2 text-sm opacity-80">
-          Upload a Unity/Unreal crash log → structured root cause, evidence, and fixes.
-        </p>
-
-        <form onSubmit={onSubmit} className="mt-6 space-y-4">
-          {/* Engine Selector */}
-          <div className="flex gap-3 flex-wrap">
-            {[
-              { k: "unity", label: "Unity" },
-              { k: "unreal", label: "Unreal" },
-              { k: "", label: "Auto-detect" },
-            ].map((opt) => (
-              <label
-                key={opt.k || "auto"}
-                className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border cursor-pointer ${
-                  engine === opt.k
-                    ? "bg-black text-white dark:bg-white dark:text-black"
-                    : ""
-                }`}
-              >
-                <input
-                  type="radio"
-                  className="hidden"
-                  name="engine"
-                  value={opt.k}
-                  checked={engine === opt.k}
-                  onChange={() => setEngine(opt.k as any)}
-                />
-                <span>{opt.label}</span>
-              </label>
-            ))}
-          </div>
-
-          {/* Dropzone */}
-          <div
-            className="border-2 border-dashed rounded-xl p-6 text-center hover:bg-black/5 dark:hover:bg-white/5 transition"
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={(e) => {
-              e.preventDefault();
-              const f = e.dataTransfer.files?.[0];
-              if (f) setFile(f);
-            }}
-          >
-            <input
-              id="logfile"
-              type="file"
-              accept=".log,.txt"
-              className="hidden"
-              onChange={(e) => setFile(e.target.files?.[0] || null)}
-            />
-            <label htmlFor="logfile" className="cursor-pointer text-sm">
-              {file ? (
-                <span className="font-medium">Selected: {file.name}</span>
-              ) : (
-                <>
-                  <span className="font-medium underline">Click to choose a log</span> or drag & drop
-                </>
-              )}
-            </label>
-            <div className="text-xs opacity-70 mt-1">
-              Unity <code>Editor.log</code> or any crash <code>.log/.txt</code>.
-            </div>
-          </div>
-
-          {/* Buttons */}
-          <div className="flex gap-3">
-            <button
-              type="submit"
-              disabled={!file || loading}
-              className="px-5 py-2 rounded-xl border font-medium disabled:opacity-50"
+    <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+      {/* top controls */}
+      <form onSubmit={onSubmit} className="space-y-4">
+        {/* Engine Selector */}
+        <div className="flex flex-wrap items-center gap-2">
+          {[
+            { k: "unity", label: "Unity" },
+            { k: "unreal", label: "Unreal" },
+            { k: "", label: "Auto" },
+          ].map((opt) => (
+            <label
+              key={opt.k || "auto"}
+              className={`badge cursor-pointer ${
+                engine === opt.k
+                  ? "bg-gradient-to-r from-fuchsia-400 to-orange-300 text-black border-transparent"
+                  : ""
+              }`}
             >
-              {loading ? "Analyzing…" : "Analyze log"}
-            </button>
+              <input
+                type="radio"
+                className="hidden"
+                name="engine"
+                value={opt.k}
+                checked={engine === opt.k}
+                onChange={() => setEngine(opt.k as any)}
+              />
+              <span className="px-1">{opt.label}</span>
+            </label>
+          ))}
+        </div>
+
+        {/* Dropzone */}
+        <div
+          className="rounded-xl border-2 border-dashed border-white/20 p-6 text-center transition hover:bg-white/5"
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => {
+            e.preventDefault();
+            const f = e.dataTransfer.files?.[0];
+            if (f) {
+              setFile(f);
+              setFileText("");
+              f.text().then((t) => setFileText(t)).catch(() => {});
+            }
+          }}
+        >
+          <input
+            id="logfile"
+            type="file"
+            accept=".log,.txt"
+            className="hidden"
+            onChange={async (e) => {
+              const f = e.target.files?.[0] || null;
+              setFile(f);
+              setFileText("");
+              if (f) {
+                try {
+                  const t = await f.text();
+                  setFileText(t);
+                } catch {}
+              }
+            }}
+          />
+          <label htmlFor="logfile" className="cursor-pointer text-sm">
+            {file ? (
+              <span className="font-medium">Selected: {file.name}</span>
+            ) : (
+              <>
+                <span className="font-medium underline">Click to choose a log</span> or drag & drop
+              </>
+            )}
+          </label>
+          <div className="mt-1 text-xs opacity-70">
+            Unity <code>Editor.log</code> or any crash <code>.log/.txt</code>.
+          </div>
+        </div>
+
+        {/* Quick preview of the log (first lines) */}
+        {fileHint && (
+          <details className="rounded-xl border border-white/10 bg-[#0f1431]/50 p-3">
+            <summary className="cursor-pointer text-sm opacity-85">
+              Preview first lines
+            </summary>
+            <pre className="nice-scroll mt-2 max-h-40 overflow-auto rounded-md bg-black/30 p-3 text-xs">
+{fileHint}
+            </pre>
+          </details>
+        )}
+
+        {/* Buttons */}
+        <div className="flex flex-wrap gap-3">
+          <button
+            type="submit"
+            disabled={!file || loading}
+            className={`btn btn-primary ${loading ? "opacity-70" : ""}`}
+          >
+            {loading ? "Analyzing…" : "Analyze log"}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setFile(null);
+              setFileText("");
+              setResult(null);
+              setError(null);
+            }}
+            className="btn btn-secondary text-sm"
+          >
+            Reset
+          </button>
+
+          {/* Local backup download (in case page listener is removed) */}
+          {result && (
             <button
               type="button"
               onClick={() => {
-                setFile(null);
-                setResult(null);
-                setError(null);
+                const blob = new Blob(
+                  [JSON.stringify(result, null, 2)],
+                  { type: "application/json" }
+                );
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `bugzap_crash_report_${Date.now()}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
               }}
-              className="px-4 py-2 rounded-xl text-sm opacity-80 hover:opacity-100"
+              className="btn btn-secondary text-sm"
+              title="Download the current analysis as JSON"
             >
-              Reset
+              Download JSON (local)
             </button>
-          </div>
-        </form>
+          )}
+        </div>
+      </form>
 
-        {/* Error */}
-        {error && (
-          <div className="mt-5 rounded-xl border border-red-300/70 p-4">
-            <div className="font-semibold">Error</div>
-            <div className="text-sm whitespace-pre-wrap">{error}</div>
-          </div>
-        )}
+      {/* Error */}
+      {error && (
+        <div className="mt-5 rounded-xl border border-red-500/40 bg-red-500/10 p-4">
+          <div className="font-semibold">Error</div>
+          <div className="whitespace-pre-wrap text-sm">{error}</div>
+        </div>
+      )}
 
-        {/* Results */}
-        {result && (
-          <div className="mt-6 space-y-4">
-            <div className="rounded-xl border p-4">
-              <div className="flex items-center justify-between gap-4">
-                <h2 className="text-xl font-semibold">Summary</h2>
-                <div className="text-sm opacity-80">
-                  Engine: {result.engine} • Confidence: {Math.round(result.confidence * 100)}%
-                </div>
+      {/* Results */}
+      {result && (
+        <div className="mt-6 grid gap-4 md:grid-cols-2">
+          <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+            <div className="mb-1 flex items-center justify-between gap-4">
+              <h2 className="text-xl font-semibold">Summary</h2>
+              <div className="text-xs opacity-80">
+                Engine: {result.engine} • Confidence:{" "}
+                {Math.round(result.confidence * 100)}%
               </div>
-              <p className="mt-2">{result.summary}</p>
             </div>
-
-            <div className="rounded-xl border p-4">
-              <h3 className="font-semibold">Root Cause</h3>
-              <p className="mt-1">{result.root_cause}</p>
-            </div>
-
-            <div className="rounded-xl border p-4">
-              <h3 className="font-semibold">Evidence</h3>
-              <ul className="list-disc pl-5 mt-1 text-sm">
-                {result.evidence.map((e, i) => (
-                  <li key={i}><code className="break-all">{e}</code></li>
-                ))}
-              </ul>
-            </div>
-
-            <div className="rounded-xl border p-4">
-              <h3 className="font-semibold">Recommendations</h3>
-              <ul className="list-disc pl-5 mt-1">
-                {result.recommendations.map((r, i) => (
-                  <li key={i}>{r}</li>
-                ))}
-              </ul>
-            </div>
-
-            {result.code_patch && (
-              <div className="rounded-xl border p-4">
-                <h3 className="font-semibold">Example Patch</h3>
-                <pre className="mt-2 overflow-auto text-sm"><code>{result.code_patch}</code></pre>
-              </div>
-            )}
+            <p className="opacity-90">{result.summary}</p>
           </div>
-        )}
-      </div>
+
+          <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+            <h3 className="font-semibold">Root Cause</h3>
+            <p className="mt-1 opacity-90">{result.root_cause}</p>
+          </div>
+
+          <div className="rounded-xl border border-white/10 bg-white/5 p-4 md:col-span-2">
+            <h3 className="font-semibold">Evidence</h3>
+            <ul className="mt-1 list-disc pl-5 text-sm">
+              {result.evidence.map((e, i) => (
+                <li key={i}>
+                  <code className="break-all">{e}</code>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+            <h3 className="font-semibold">Recommendations</h3>
+            <ul className="mt-1 list-disc pl-5">
+              {result.recommendations.map((r, i) => (
+                <li key={i}>{r}</li>
+              ))}
+            </ul>
+          </div>
+
+          {result.code_patch && (
+            <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+              <h3 className="font-semibold">Example Patch</h3>
+              <pre className="nice-scroll mt-2 max-h-60 overflow-auto rounded-md bg-black/30 p-3 text-xs">
+                <code>{result.code_patch}</code>
+              </pre>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -7,13 +7,44 @@ import { useSearchParams, useRouter } from "next/navigation";
 import CrashAnalyze from "@/components/CrashAnalyze"; // Live feature
 
 // --------------------------------------------------
-// Tiny UI helpers (no extra packages)
+// Lightweight UI bits (no extra deps)
 // --------------------------------------------------
 function Toast({ show, children }: { show: boolean; children: React.ReactNode }) {
   if (!show) return null;
   return (
     <div className="fixed bottom-6 left-1/2 z-[60] -translate-x-1/2 rounded-xl border border-white/15 bg-white/10 px-4 py-2 text-sm backdrop-blur-md shadow-xl">
       {children}
+    </div>
+  );
+}
+
+function Modal({
+  open,
+  onClose,
+  children,
+  title,
+}: {
+  open: boolean;
+  onClose: () => void;
+  children: React.ReactNode;
+  title: string;
+}) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-[70] grid place-items-center">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-[min(92vw,560px)] rounded-2xl border border-white/15 bg-[#0f1431]/95 p-6 shadow-2xl">
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="text-lg font-semibold">{title}</h3>
+          <button
+            onClick={onClose}
+            className="rounded-md border border-white/15 px-2 py-1 text-xs hover:bg-white/10"
+          >
+            Close
+          </button>
+        </div>
+        {children}
+      </div>
     </div>
   );
 }
@@ -48,9 +79,7 @@ function TabButton({
     <button
       onClick={onClick}
       className={`relative whitespace-nowrap px-4 py-2 text-sm transition ${
-        active
-          ? "text-white"
-          : "text-zinc-300 hover:text-white hover:bg-white/10"
+        active ? "text-white" : "text-zinc-300 hover:text-white hover:bg-white/10"
       }`}
     >
       {children}
@@ -136,10 +165,10 @@ function ComingSoon({
       <div className="mt-5 text-sm">
         Want early access?{" "}
         <a
-          href="mailto:founders@bugzap.ai?subject=BugZap%20Early%20Access"
+          href="mailto:Outreach@trybugzap.com?subject=BugZap%20Early%20Access"
           className="underline hover:opacity-80"
         >
-          Email us
+          Outreach@trybugzap.com
         </a>
         .
       </div>
@@ -151,28 +180,29 @@ function ComingSoon({
 // Main page
 // --------------------------------------------------
 function BugZapPageInner() {
-  // Code Debugger state (kept)
+  // Code Debugger state
   const [snippet, setSnippet] = useState<string>("");
   const [issues, setIssues] = useState<any[]>([]);
   const [sessionId, setSessionId] = useState<string>("");
   const [timeSaved, setTimeSaved] = useState<number | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
 
-  // FBX state (kept)
+  // FBX state
   const [fbxFile, setFbxFile] = useState<File | null>(null);
   const [fbxIssues, setFbxIssues] = useState<any[]>([]);
   const [fbxLoading, setFbxLoading] = useState<boolean>(false);
 
-  // Crash Analyzer report capture (NEW)
+  // Crash Analyzer report capture
   const [crashReport, setCrashReport] = useState<any | null>(null);
 
-  // Toast
+  // Toast + Feedback modal
   const [toast, setToast] = useState<string>("");
+  const [feedbackOpen, setFeedbackOpen] = useState<boolean>(false);
 
   // API
   const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-  // Handlers (same endpoints you had)
+  // Handlers (same endpoints)
   const runAnalyze = async () => {
     setLoading(true);
     try {
@@ -184,6 +214,7 @@ function BugZapPageInner() {
       setIssues(data.issues);
       setTimeSaved(null);
       setToast("Scan complete");
+      setFeedbackOpen(true); // <-- ask for feedback after scan
       setTimeout(() => setToast(""), 1400);
     } catch (e: any) {
       alert(e.message);
@@ -224,6 +255,7 @@ function BugZapPageInner() {
       const data = await res.json();
       setFbxIssues(data.issues);
       setToast("FBX analyzed");
+      setFeedbackOpen(true); // <-- ask for feedback after scan
       setTimeout(() => setToast(""), 1400);
     } catch (e: any) {
       alert(e.message);
@@ -271,8 +303,7 @@ function BugZapPageInner() {
     | "team"
     | "integrations"
     | "buildhealth"
-    | "storeready"
-    | "pricing";
+    | "storeready";
 
   const params = useSearchParams();
   const router = useRouter();
@@ -297,13 +328,18 @@ function BugZapPageInner() {
   }, [snippet, sessionId, issues]);
 
   // Capture crash report from CrashAnalyze via CustomEvent
-  // In your CrashAnalyze component, dispatch after analysis:
+  // In CrashAnalyze, after analysis:
   // window.dispatchEvent(new CustomEvent("bugzap:crashReport", { detail: reportObject }));
   useEffect(() => {
     const onReport = (e: Event) => {
       // @ts-ignore
       const detail = (e as CustomEvent).detail;
-      if (detail) setCrashReport(detail);
+      if (detail) {
+        setCrashReport(detail);
+        setToast("Crash analyzed");
+        setFeedbackOpen(true); // <-- ask for feedback after scan
+        setTimeout(() => setToast(""), 1400);
+      }
     };
     window.addEventListener("bugzap:crashReport", onReport as EventListener);
     return () => window.removeEventListener("bugzap:crashReport", onReport as EventListener);
@@ -340,8 +376,8 @@ function BugZapPageInner() {
         {/* grid */}
         <div className="absolute inset-0 opacity-[0.18] [background-image:linear-gradient(transparent,transparent_23px,rgba(255,255,255,0.08)_24px),linear-gradient(90deg,transparent,transparent_23px,rgba(255,255,255,0.08)_24px)] [background-size:24px_24px]" />
         {/* glows */}
-        <div className="absolute -top-24 -left-24 h-72 w-72 rounded-full bg-fuchsia-600/30 blur-3xl" />
-        <div className="absolute bottom-0 right-0 h-96 w-96 rounded-full bg-orange-500/25 blur-3xl" />
+        <div className="absolute -top-24 -left-24 h-72 w-72 rounded-full bg-fuchsia-600/35 blur-3xl" />
+        <div className="absolute bottom-0 right-0 h-96 w-96 rounded-full bg-orange-500/30 blur-3xl" />
       </div>
 
       {/* HEADER */}
@@ -349,7 +385,7 @@ function BugZapPageInner() {
         <div className="mx-auto max-w-7xl">
           <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div className="flex items-start gap-3">
-              <div className="grid h-12 w-12 place-items-center rounded-xl bg-gradient-to-br from-fuchsia-500 to-orange-400 text-lg font-extrabold">
+              <div className="grid h-12 w-12 place-items-center rounded-xl bg-gradient-to-br from-fuchsia-500 to-orange-400 text-lg font-extrabold shadow-lg">
                 BZ
               </div>
               <div>
@@ -394,7 +430,6 @@ function BugZapPageInner() {
                 ["integrations", "Integrations"],
                 ["buildhealth", "Build Health"],
                 ["storeready", "Store Readiness"],
-                ["pricing", "Pricing & Plans"],
               ].map(([key, label]) => (
                 <TabButton key={key} active={tab === key} onClick={() => setTab(key as any)}>
                   {label}
@@ -550,8 +585,8 @@ function BugZapPageInner() {
             <div className="h-2 w-full bg-gradient-to-r from-fuchsia-400 via-violet-400 to-orange-300" />
             <div className="relative grid gap-6 p-6 md:grid-cols-[1fr,320px]">
               {/* playful background wash */}
-              <div className="pointer-events-none absolute -top-24 left-1/2 h-64 w-64 -translate-x-1/2 rounded-full bg-fuchsia-500/20 blur-3xl" />
-              <div className="pointer-events-none absolute bottom-0 right-0 h-72 w-72 rounded-full bg-orange-500/20 blur-3xl" />
+              <div className="pointer-events-none absolute -top-24 left-1/2 h-64 w-64 -translate-x-1/2 rounded-full bg-fuchsia-500/25 blur-3xl" />
+              <div className="pointer-events-none absolute bottom-0 right-0 h-72 w-72 rounded-full bg-orange-500/25 blur-3xl" />
 
               <div className="rounded-2xl border border-white/10 bg-[#0f1431]/70 p-5 backdrop-blur-md">
                 <div className="mb-4 flex items-center justify-between">
@@ -582,7 +617,7 @@ function BugZapPageInner() {
                   {!crashReport && (
                     <p className="mt-2 text-xs opacity-70">
                       Tip: After analysis, the report becomes downloadable. If nothing happens,
-                      update your <code>CrashAnalyze</code> to dispatch:
+                      update <code>CrashAnalyze</code> to dispatch:
                       <code className="ml-1 rounded bg-black/40 px-1 py-0.5">
                         {"window.dispatchEvent(new CustomEvent('bugzap:crashReport', { detail: report }))"}
                       </code>
@@ -597,6 +632,19 @@ function BugZapPageInner() {
                     <li>• Soothing glows + crisp borders = clarity</li>
                     <li>• One-click export for async teamwork</li>
                   </ul>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+                  <div className="mb-2 text-sm font-semibold">Questions?</div>
+                  <p className="text-sm opacity-90">
+                    Email{" "}
+                    <a
+                      className="underline"
+                      href="mailto:Outreach@trybugzap.com?subject=BugZap%20Support"
+                    >
+                      Outreach@trybugzap.com
+                    </a>
+                  </p>
                 </div>
               </aside>
             </div>
@@ -642,7 +690,7 @@ function BugZapPageInner() {
           </section>
         )}
 
-        {/* ---- Coming Soon Panels (kept) ---- */}
+        {/* ---- Coming Soon Panels ---- */}
         {tab === "tester" && (
           <ComingSoon
             title="AI Game Tester"
@@ -724,72 +772,56 @@ function BugZapPageInner() {
           />
         )}
 
-        {/* ---- Pricing (kept) ---- */}
-        {tab === "pricing" && (
-          <section className="rounded-3xl border border-white/10 bg-white/5 p-6">
-            <h2 className="mb-2 text-2xl font-semibold">Pricing & Plans</h2>
-            <p className="mb-4 opacity-80">
-              Try BugZap free, then pick a plan that fits your team. Early-access discounts available for our first cohort.
-            </p>
-
-            <div className="grid gap-4 md:grid-cols-3">
-              <div className="rounded-xl border border-white/10 bg-white/5 p-5">
-                <div className="text-lg font-semibold">Free</div>
-                <div className="my-2 text-3xl font-extrabold">$0</div>
-                <ul className="space-y-1 text-sm opacity-90">
-                  <li>• 3 crash analyses / month</li>
-                  <li>• Basic code scan</li>
-                  <li>• Community support</li>
-                </ul>
-                <button className="mt-4 w-full rounded-xl border px-4 py-2">Get Started</button>
-              </div>
-
-              <div className="rounded-xl border border-yellow-400/40 bg-yellow-400/10 p-5">
-                <div className="text-lg font-semibold">Indie</div>
-                <div className="my-2 text-3xl font-extrabold">$49</div>
-                <ul className="space-y-1 text-sm opacity-90">
-                  <li>• Unlimited crash analyses</li>
-                  <li>• Priority patches</li>
-                  <li>• Email support</li>
-                </ul>
-                <button className="mt-4 w-full rounded-xl bg-gradient-to-r from-orange-400 to-yellow-300 px-4 py-2 font-semibold text-black">
-                  Join Early Access
-                </button>
-              </div>
-
-              <div className="rounded-xl border border-white/10 bg-white/5 p-5">
-                <div className="text-lg font-semibold">Studio</div>
-                <div className="my-2 text-3xl font-extrabold">$249</div>
-                <ul className="space-y-1 text-sm opacity-90">
-                  <li>• SLA & dedicated support</li>
-                  <li>• Team seats</li>
-                  <li>• Feature prioritization</li>
-                </ul>
-                <button className="mt-4 w-full rounded-xl border px-4 py-2">Talk to Us</button>
-              </div>
-            </div>
-
-            <p className="mt-4 text-xs opacity-60">
-              Billing goes live with our first production cohort. Contact{" "}
-              <a className="underline" href="mailto:founders@bugzap.ai">
-                founders@bugzap.ai
-              </a>{" "}
-              for a custom plan.
-            </p>
-          </section>
-        )}
-
         {/* FOOTER CTA */}
         <footer className="pt-2">
           <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-center">
             <div className="text-sm opacity-85">
-              “Ship faster, rage less.” — BugZap watches your builds so your team can build.
+              “Ship faster, rage less.” — BugZap watches your builds so your team can build. •{" "}
+              <a
+                className="underline"
+                href="mailto:Outreach@trybugzap.com?subject=BugZap%20Feedback"
+              >
+                Outreach@trybugzap.com
+              </a>
             </div>
           </div>
         </footer>
       </main>
 
+      {/* Global UI */}
       <Toast show={!!toast}>{toast}</Toast>
+
+      <Modal
+        open={feedbackOpen}
+        onClose={() => setFeedbackOpen(false)}
+        title="Leave feedback?"
+      >
+        <p className="text-sm opacity-90">
+          Thanks for trying BugZap! Got a thought on the results or the UX? We’d love to hear it.
+        </p>
+        <div className="mt-4 grid gap-2 sm:grid-cols-2">
+          <a
+            className="grid place-items-center rounded-xl bg-gradient-to-r from-fuchsia-400 to-orange-300 px-4 py-2 font-semibold text-black"
+            href={`mailto:Outreach@trybugzap.com?subject=Feedback%20on%20BugZap&body=${encodeURIComponent(
+              `What I scanned:\n- Tab: ${window?.location?.search || ""}\n- Session: ${
+                sessionId || "n/a"
+              }\n\nMy feedback:\n`
+            )}`}
+            onClick={() => setFeedbackOpen(false)}
+          >
+            Email Feedback
+          </a>
+          <button
+            className="rounded-xl border border-white/15 px-4 py-2 text-sm hover:border-white/25"
+            onClick={() => setFeedbackOpen(false)}
+          >
+            Not now
+          </button>
+        </div>
+        <p className="mt-3 text-xs opacity-70">
+          You can reach us anytime at <span className="underline">Outreach@trybugzap.com</span>.
+        </p>
+      </Modal>
     </div>
   );
 }

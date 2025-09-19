@@ -17,12 +17,22 @@ const apiFromEnv =
   (process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_BASE_URL || "").trim();
 const API_BASE = apiFromEnv ? apiFromEnv.replace(/\/$/, "") : "";
 
+// (NEW) Optional override for exact crash path via env
+const CRASH_PATH_FROM_ENV = (process.env.NEXT_PUBLIC_CRASH_PATH || "").trim().replace(/^\/?/, "/");
+
 // Candidate backend routes (we'll try in order until one returns JSON 200)
-const CRASH_ENDPOINTS = [
-  "/analyze-crash",
-  "/crash/analyze",
-  "/analyze_log",
-];
+const CRASH_ENDPOINTS = CRASH_PATH_FROM_ENV
+  ? [CRASH_PATH_FROM_ENV]
+  : [
+      "/analyze-crash",
+      "/crash/analyze",
+      "/analyze_log",
+      // (NEW) extra common variants
+      "/crash/analyze-log",
+      "/crash/analyze_log",
+      "/analyze_crash",
+      "/crashlog/analyze",
+    ];
 
 export default function CrashAnalyze() {
   const [file, setFile] = useState<File | null>(null);
@@ -44,39 +54,38 @@ export default function CrashAnalyze() {
       const url = `${API_BASE}${path}`;
       tried.push(url);
       try {
-        const res = await fetch(url, { method: "POST", body: form });
+        const res = await fetch(url, {
+          method: "POST",
+          body: form,
+          headers: { Accept: "application/json" }, // (NEW) prefer JSON
+        });
 
         const ct = res.headers.get("content-type") || "";
         const isJSON = ct.includes("application/json");
 
         if (!res.ok) {
-          // If JSON error, include its message; otherwise surface status
-          const msg = isJSON ? JSON.stringify(await res.json()).slice(0, 300)
-                             : (await res.text()).slice(0, 300);
-          // 404 -> try next path
-          if (res.status === 404) continue;
+          const msg = isJSON
+            ? JSON.stringify(await res.json()).slice(0, 300)
+            : (await res.text()).slice(0, 300);
+          if (res.status === 404) continue; // try next path
           throw new Error(`HTTP ${res.status} from ${url}: ${msg}`);
         }
 
         if (!isJSON) {
-          // Not JSON? Try next path.
+          // Not JSON? try the next candidate
           continue;
         }
 
         const data = (await res.json()) as Result;
-        // Basic shape check
-        if (data && typeof data.summary === "string") return data;
-        // If shape is off, try next
-      } catch (e) {
-        // Network error — move on to next candidate
+        if (data && typeof data.summary === "string") return data; // basic shape check
+      } catch {
+        // network/parse issue — move on
         continue;
       }
     }
 
     throw new Error(
-      `No crash-analysis endpoint responded successfully.\nTried:\n- ${tried.join(
-        "\n- "
-      )}`
+      `No crash-analysis endpoint responded successfully.\nTried:\n- ${tried.join("\n- ")}`
     );
   }
 
@@ -89,10 +98,12 @@ export default function CrashAnalyze() {
 
     try {
       const form = new FormData();
-      // Your backend might expect "log" or "file"; include both for safety.
+      // Your backend might expect different keys — include a few common ones
       form.append("log", file);
       form.append("file", file);
+      form.append("crash_log", file);          // (NEW)
       form.append("engine", engine);
+      form.append("game_engine", engine);      // (NEW)
 
       const data = await postToFirstWorkingEndpoint(form);
       setResult(data);

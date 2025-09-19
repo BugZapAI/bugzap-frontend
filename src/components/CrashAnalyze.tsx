@@ -17,24 +17,33 @@ const apiFromEnv =
   (process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_BASE_URL || "").trim();
 const API_BASE = apiFromEnv ? apiFromEnv.replace(/\/$/, "") : "";
 
-// (NEW) Optional override for exact crash path via env (ignore empty or "/")
+// Optional override for exact crash path via env (ignore empty or "/")
 const pathEnvRaw = (process.env.NEXT_PUBLIC_CRASH_PATH || "").trim();
 const CRASH_PATH_FROM_ENV =
   pathEnvRaw && pathEnvRaw !== "/"
     ? (pathEnvRaw.startsWith("/") ? pathEnvRaw : `/${pathEnvRaw}`)
     : "";
 
-// Candidate backend routes (we'll try in order until one returns JSON 200)
+// Candidate backend routes (include /api + trailing slashes)
 const CRASH_ENDPOINTS = CRASH_PATH_FROM_ENV
   ? [CRASH_PATH_FROM_ENV]
   : [
-      "/analyze-crash",
-      "/crash/analyze",
-      "/analyze_log",
-      "/crash/analyze-log",
-      "/crash/analyze_log",
-      "/analyze_crash",
-      "/crashlog/analyze",
+      // no /api
+      "/analyze-crash", "/analyze-crash/",
+      "/crash/analyze", "/crash/analyze/",
+      "/analyze_log", "/analyze_log/",
+      "/crash/analyze-log", "/crash/analyze-log/",
+      "/crash/analyze_log", "/crash/analyze_log/",
+      "/analyze_crash", "/analyze_crash/",
+      "/crashlog/analyze", "/crashlog/analyze/",
+      // with /api prefix
+      "/api/analyze-crash", "/api/analyze-crash/",
+      "/api/crash/analyze", "/api/crash/analyze/",
+      "/api/analyze_log", "/api/analyze_log/",
+      "/api/crash/analyze-log", "/api/crash/analyze-log/",
+      "/api/crash/analyze_log", "/api/crash/analyze_log/",
+      "/api/analyze_crash", "/api/analyze_crash/",
+      "/api/crashlog/analyze", "/api/crashlog/analyze/",
     ];
 
 export default function CrashAnalyze() {
